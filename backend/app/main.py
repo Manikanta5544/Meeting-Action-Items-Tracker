@@ -7,6 +7,9 @@ from app.models import init_db
 from app.parser import parse_actions
 from app.llm import extract_with_llm
 from app.status import router as status_router
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="Meeting Action Items API")
 
@@ -33,6 +36,15 @@ class ActionItemUpdate(BaseModel):
     owner: Optional[str]
     due_date: Optional[str]
     status: Optional[str]
+
+@app.get("/")
+def root():
+    return {
+        "service": "Meeting Action Items Tracker API",
+        "status": "running",
+        # "docs": "/docs"
+    }
+
 
 @app.post("/api/transcripts")
 def process_transcript(payload: TranscriptInput):
