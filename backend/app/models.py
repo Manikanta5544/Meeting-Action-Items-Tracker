@@ -1,4 +1,4 @@
-from database import get_db
+from app.database import get_db
 
 def init_db():
     db = get_db()

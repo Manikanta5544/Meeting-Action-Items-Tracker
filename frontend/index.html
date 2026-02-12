@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting Action Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+    <!-- Header -->
+    <header class="header">
+        <h1>Meeting Action Tracker</h1>
+        <p>Extract and manage tasks from meeting transcripts</p>
+    </header>
+
+    <!-- Transcript Input -->
+    <section class="card">
+        <label class="label">Meeting transcript</label>
+        <textarea
+            id="transcriptInput"
+            rows="7"
+            placeholder="Paste meeting transcript here..."
+        ></textarea>
+
+        <div class="actions">
+            <button class="btn primary" id="processBtn">
+                Extract action items
+            </button>
+            <span class="meta" id="extractionSource"></span>
+        </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="filters">
+        <button class="filter active" data-filter="all">All</button>
+        <button class="filter" data-filter="open">Open</button>
+        <button class="filter" data-filter="done">Done</button>
+    </section>
+
+    <!-- Action Items -->
+    <section id="actionItems" class="items"></section>
+
+    <!-- History -->
+    <section class="card">
+        <h2>Recent transcripts</h2>
+        <div id="history" class="history"></div>
+    </section>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

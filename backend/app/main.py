@@ -2,11 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-from database import get_db
-from models import init_db
-from parser import parse_actions
-from llm import extract_with_llm
-from status import router as status_router
+from app.database import get_db
+from app.models import init_db
+from app.parser import parse_actions
+from app.llm import extract_with_llm
+from app.status import router as status_router
 
 app = FastAPI(title="Meeting Action Items API")
 
