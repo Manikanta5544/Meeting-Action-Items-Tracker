@@ -6,12 +6,25 @@ ACTION_KEYWORDS = [
     "action", "todo", "follow up", "assign", "responsible"
 ]
 
+NEGATIVE_PATTERNS = [
+    r"\bno\s+(other|further)?\s*action\s+items?\b",
+    r"\bno\s+action\s+required\b",
+    r"\bnothing\s+else\b",
+]
+
+def is_negative_statement(line: str) -> bool:
+    text = line.lower().strip()
+    return any(re.search(pattern, text) for pattern in NEGATIVE_PATTERNS)
+
 def parse_actions(text: str):
     actions = []
     lines = [l.strip() for l in text.split("\n") if l.strip()]
 
     for line in lines:
         if len(line) < 10:
+            continue
+
+        if is_negative_statement(line):
             continue
 
         is_action = any(k in line.lower() for k in ACTION_KEYWORDS)
