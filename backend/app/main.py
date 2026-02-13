@@ -13,9 +13,17 @@ load_dotenv()
 
 app = FastAPI(title="Meeting Action Items API")
 
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5500",
+    "https://meeting-action-items-tracker-roan.vercel.app"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -23,26 +31,30 @@ app.add_middleware(
 init_db()
 app.include_router(status_router)
 
+
 class TranscriptInput(BaseModel):
     text: str
+
 
 class ActionItemCreate(BaseModel):
     task: str
     owner: Optional[str] = None
     due_date: Optional[str] = None
+    transcript_id: int
+
 
 class ActionItemUpdate(BaseModel):
-    task: Optional[str]
-    owner: Optional[str]
-    due_date: Optional[str]
-    status: Optional[str]
+    task: Optional[str] = None
+    owner: Optional[str] = None
+    due_date: Optional[str] = None
+    status: Optional[str] = None
+
 
 @app.get("/")
 def root():
     return {
         "service": "Meeting Action Items Tracker API",
         "status": "running",
-        # "docs": "/docs"
     }
 
 
@@ -67,13 +79,19 @@ def process_transcript(payload: TranscriptInput):
         source = "rule-based"
 
     for a in actions:
+        task = a.get("task", "").lstrip("-* ").strip()
+        if not task:
+            continue
+
         db.execute("""
             INSERT INTO action_items (transcript_id, task, owner, due_date, status)
             VALUES (?, ?, ?, ?, 'open')
-        """, (transcript_id, a["task"], a.get("owner"), a.get("due_date")))
+        """, (transcript_id, task, a.get("owner"), a.get("due_date")))
+
     db.commit()
 
     return {"transcript_id": transcript_id, "source": source}
+
 
 @app.get("/api/transcripts")
 def get_transcripts():
@@ -88,24 +106,31 @@ def get_transcripts():
     """).fetchall()
     return [dict(r) for r in rows]
 
+
 @app.get("/api/transcripts/{tid}")
 def get_items(tid: int, status: Optional[str] = None):
     db = get_db()
     q = "SELECT * FROM action_items WHERE transcript_id=?"
     params = [tid]
+
     if status in ["open", "done"]:
         q += " AND status=?"
         params.append(status)
+
     rows = db.execute(q, params).fetchall()
     return [dict(r) for r in rows]
+
 
 @app.post("/api/action-items")
 def add_item(item: ActionItemCreate):
     db = get_db()
+    task = item.task.lstrip("-* ").strip()
+
     cur = db.execute("""
         INSERT INTO action_items (transcript_id, task, owner, due_date, status)
         VALUES (?, ?, ?, ?, 'open')
-    """, (item.transcript_id, item.task, item.owner, item.due_date))
+    """, (item.transcript_id, task, item.owner, item.due_date))
+
     db.commit()
     return {"id": cur.lastrowid}
 
@@ -113,16 +138,24 @@ def add_item(item: ActionItemCreate):
 @app.put("/api/action-items/{item_id}")
 def update_item(item_id: int, item: ActionItemUpdate):
     db = get_db()
-    fields, values = [], []
+    fields = []
+    values = []
+
     for k, v in item.dict(exclude_none=True).items():
+        if k == "task" and v:
+            v = v.lstrip("-* ").strip()
         fields.append(f"{k}=?")
         values.append(v)
+
     if not fields:
         raise HTTPException(400, "No updates")
+
     values.append(item_id)
     db.execute(f"UPDATE action_items SET {', '.join(fields)} WHERE id=?", values)
     db.commit()
+
     return {"updated": True}
+
 
 @app.delete("/api/action-items/{item_id}")
 def delete_item(item_id: int):
