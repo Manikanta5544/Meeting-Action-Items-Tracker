@@ -251,21 +251,22 @@ function renderItems() {
                 <input type="checkbox"
                     ${item.status === "done" ? "checked" : ""}
                     onchange="toggleDone(${item.id}, this.checked)">
-                <div>
+                <div class="item-content">
                     <div>${escapeHtml(item.task)}</div>
                     ${(item.owner || item.due_date) ? `
                         <div class="meta">
                             ${item.owner || ""} ${item.due_date || ""}
                         </div>` : ""}
                 </div>
-                <div>
-                    <button onclick="editItem(${item.id})">Edit</button>
-                    <button onclick="deleteItem(${item.id})">Delete</button>
+                <div class="item-actions">
+                    <button class="action-btn" onclick="editItem(${item.id})">Edit</button>
+                    <button class="action-btn danger" onclick="deleteItem(${item.id})">Delete</button>
                 </div>
             </div>
         `;
     }).join("");
 }
+
 
 function renderHistory() {
     historyEl.innerHTML = AppState.transcripts.map(t => `

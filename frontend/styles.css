@@ -269,3 +269,33 @@ textarea:focus,
     justify-content: flex-end;
     gap: 10px;
 }
+
+.item-content {
+    flex: 1;
+}
+
+.item-actions {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.action-btn:hover {
+    color: var(--accent);
+}
+
+.action-btn.danger:hover {
+    color: #dc2626;
+}
