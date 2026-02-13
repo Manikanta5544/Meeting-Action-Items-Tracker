@@ -1,4 +1,8 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8000"
+    : "https://meeting-action-items-tracker-6aqr.onrender.com";
+
 
 /* Cache DOM elements */
 const transcriptInput = document.getElementById("transcriptInput");

@@ -9,8 +9,8 @@ Built as a **time-boxed, production-minded assignment**, prioritizing correctnes
 ##  Live Demo
 
 **Frontend:** :  
-**Backend API:** : 
-**Status Page:** <BACKEND_URL>/status
+**Backend API:** : https://meeting-action-items-tracker-6aqr.onrender.com
+**Status Page:** https://meeting-action-items-tracker-6aqr.onrender.com/status
 
 ---
 
