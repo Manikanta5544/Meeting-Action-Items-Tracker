@@ -3,8 +3,6 @@ const API_BASE =
     ? "http://localhost:8000"
     : "https://meeting-action-items-tracker-6aqr.onrender.com";
 
-
-/* Cache DOM elements */
 const transcriptInput = document.getElementById("transcriptInput");
 const extractionSource = document.getElementById("extractionSource");
 const actionItems = document.getElementById("actionItems");
@@ -13,7 +11,13 @@ const processBtn = document.getElementById("processBtn");
 const toast = document.getElementById("toast");
 const filterButtons = document.querySelectorAll(".filter");
 
-/* State */
+const confirmModal = document.getElementById("confirmModal");
+const confirmDeleteBtn = document.getElementById("confirmDelete");
+const confirmCancelBtn = document.getElementById("confirmCancel");
+
+let pendingDeleteId = null;
+let editingId = null;
+
 const AppState = {
     currentTranscriptId: null,
     currentFilter: "all",
@@ -21,7 +25,6 @@ const AppState = {
     transcripts: []
 };
 
-/* API Layer */
 const API = {
     async processTranscript(text) {
         const res = await fetch(`${API_BASE}/api/transcripts`, {
@@ -57,6 +60,15 @@ const API = {
         if (!res.ok) throw new Error("Delete failed");
     },
 
+    async addItem(payload) {
+        const res = await fetch(`${API_BASE}/api/action-items`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Add failed");
+    },
+
     async getTranscripts() {
         const res = await fetch(`${API_BASE}/api/transcripts`);
         if (!res.ok) throw new Error("Fetch transcripts failed");
@@ -64,7 +76,6 @@ const API = {
     }
 };
 
-/* Handlers */
 processBtn.addEventListener("click", handleProcessTranscript);
 
 filterButtons.forEach(btn => {
@@ -72,6 +83,24 @@ filterButtons.forEach(btn => {
         handleFilterChange(btn.dataset.filter, btn);
     });
 });
+
+confirmCancelBtn.onclick = () => {
+    pendingDeleteId = null;
+    confirmModal.classList.add("hidden");
+};
+
+confirmDeleteBtn.onclick = async () => {
+    if (!pendingDeleteId) return;
+    try {
+        await API.deleteItem(pendingDeleteId);
+        await loadItems();
+        showToast("Item deleted");
+    } catch {
+        showToast("Delete failed");
+    }
+    pendingDeleteId = null;
+    confirmModal.classList.add("hidden");
+};
 
 async function handleProcessTranscript() {
     const text = transcriptInput.value.trim();
@@ -87,8 +116,7 @@ async function handleProcessTranscript() {
         await loadItems();
         await loadHistory();
         showToast("Action items extracted");
-    } catch (e) {
-        console.error(e);
+    } catch {
         showToast("Extraction failed");
     } finally {
         setLoading(false);
@@ -112,9 +140,7 @@ async function loadHistory() {
     try {
         AppState.transcripts = await API.getTranscripts();
         renderHistory();
-    } catch {
-        /* silent */
-    }
+    } catch {}
 }
 
 function handleFilterChange(filter, btn) {
@@ -133,14 +159,59 @@ async function toggleDone(id, checked) {
     }
 }
 
-async function deleteItem(id) {
-    if (!confirm("Delete this action item?")) return;
+function deleteItem(id) {
+    pendingDeleteId = id;
+    confirmModal.classList.remove("hidden");
+}
+
+function editItem(id) {
+    editingId = id;
+    renderItems();
+}
+
+async function saveEdit(id) {
+    const task = document.getElementById(`edit-task-${id}`).value;
+    const owner = document.getElementById(`edit-owner-${id}`).value || null;
+    const due_date = document.getElementById(`edit-date-${id}`).value || null;
+
     try {
-        await API.deleteItem(id);
-        loadItems();
-        showToast("Item deleted");
+        await API.updateItem(id, { task, owner, due_date });
+        editingId = null;
+        await loadItems();
+        showToast("Item updated");
     } catch {
-        showToast("Delete failed");
+        showToast("Update failed");
+    }
+}
+
+function cancelEdit() {
+    editingId = null;
+    renderItems();
+}
+
+async function addItem() {
+    const task = document.getElementById("newTask").value.trim();
+    if (!task || !AppState.currentTranscriptId) return showToast("Task is required");
+
+    const owner = document.getElementById("newOwner").value || null;
+    const due_date = document.getElementById("newDate").value || null;
+
+    try {
+        await API.addItem({
+            transcript_id: AppState.currentTranscriptId,
+            task,
+            owner,
+            due_date
+        });
+
+        document.getElementById("newTask").value = "";
+        document.getElementById("newOwner").value = "";
+        document.getElementById("newDate").value = "";
+
+        await loadItems();
+        showToast("Item added");
+    } catch {
+        showToast("Add failed");
     }
 }
 
@@ -152,28 +223,48 @@ async function loadTranscript(id) {
     loadItems();
 }
 
-/* Render */
 function renderItems() {
     if (!AppState.items.length) {
         actionItems.innerHTML = `<div class="meta">No action items found</div>`;
         return;
     }
 
-    actionItems.innerHTML = AppState.items.map(item => `
-        <div class="item ${item.status === "done" ? "done" : ""}">
-            <input type="checkbox"
-                ${item.status === "done" ? "checked" : ""}
-                onchange="toggleDone(${item.id}, this.checked)">
-            <div>
-                <div>${escapeHtml(item.task)}</div>
-                ${(item.owner || item.due_date) ? `
-                    <div class="meta">
-                        ${item.owner || ""} ${item.due_date || ""}
-                    </div>` : ""}
+    actionItems.innerHTML = AppState.items.map(item => {
+        if (editingId === item.id) {
+            return `
+                <div class="item">
+                    <div>
+                        <input id="edit-task-${item.id}" value="${escapeHtml(item.task)}" />
+                        <input id="edit-owner-${item.id}" value="${escapeHtml(item.owner || "")}" placeholder="Owner" />
+                        <input id="edit-date-${item.id}" value="${escapeHtml(item.due_date || "")}" placeholder="Due date" />
+                        <div>
+                            <button class="btn primary" onclick="saveEdit(${item.id})">Save</button>
+                            <button class="btn" onclick="cancelEdit()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="item ${item.status === "done" ? "done" : ""}">
+                <input type="checkbox"
+                    ${item.status === "done" ? "checked" : ""}
+                    onchange="toggleDone(${item.id}, this.checked)">
+                <div>
+                    <div>${escapeHtml(item.task)}</div>
+                    ${(item.owner || item.due_date) ? `
+                        <div class="meta">
+                            ${item.owner || ""} ${item.due_date || ""}
+                        </div>` : ""}
+                </div>
+                <div>
+                    <button onclick="editItem(${item.id})">Edit</button>
+                    <button onclick="deleteItem(${item.id})">Delete</button>
+                </div>
             </div>
-            <button onclick="deleteItem(${item.id})">Delete</button>
-        </div>
-    `).join("");
+        `;
+    }).join("");
 }
 
 function renderHistory() {
@@ -184,7 +275,6 @@ function renderHistory() {
     `).join("");
 }
 
-/* Utils */
 function setLoading(on) {
     processBtn.disabled = on;
     processBtn.textContent = on ? "Processing..." : "Extract action items";
@@ -202,5 +292,4 @@ function escapeHtml(text) {
     return d.innerHTML;
 }
 
-/* Init */
 document.addEventListener("DOMContentLoaded", loadHistory);
